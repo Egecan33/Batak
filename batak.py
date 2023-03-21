@@ -86,13 +86,58 @@ def find_trick_winner(played_cards, trump_suit):
     return winner
 
 
+def save_results_to_file(results):
+    with open("results.txt", "a") as f:
+        f.write(", ".join(str(points) for points in results) + "\n")
+
+
+def bidding_phase(hands):
+    bids = [0] * len(hands)
+    tied_players = list(range(len(hands)))
+
+    while len(tied_players) > 1:
+        new_bids = []
+        for i in tied_players:
+            print(
+                f"Player {i + 1}, your hand: {sorted(hands[i], key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)))}"
+            )
+            bid = int(input(f"Enter your bid (must be at least {bids[i]}): "))
+            while bid < bids[i]:
+                bid = int(
+                    input(f"Invalid bid. Enter your bid (must be at least {bids[i]}): ")
+                )
+            new_bids.append((i, bid))
+
+        highest_bid = max(new_bids, key=lambda x: x[1])
+        tied_players = [i for i, bid in new_bids if bid == highest_bid[1]]
+        for i, bid in new_bids:
+            bids[i] = bid
+
+    highest_bidder = tied_players[0]
+
+    print(
+        f"Player {highest_bidder + 1}, you have the highest bid. Choose the trump suit:"
+    )
+    for i, suit in enumerate(Deck.suits):
+        print(f"{i + 1}: {suit}")
+    trump_suit = Deck.suits[
+        int(input("Enter the number corresponding to your chosen trump suit: ")) - 1
+    ]
+
+    return highest_bidder, bids[highest_bidder], trump_suit
+
+
 def play_game(num_players=4):
     deck = Deck()
     hands = deck.deal(num_players)
     tricks_won = [0] * num_players
-    leader = 0
-    trump_suit = random.choice(Deck.suits)
+    scores = [0] * num_players
     trump_played = False
+
+    leader, highest_bid, trump_suit = bidding_phase(hands)
+    print(
+        f"\nPlayer {leader + 1} has the highest bid of {highest_bid} and leads the first trick"
+    )
     print(f"Trump suit is {trump_suit}\n")
 
     for i in range(len(deck.cards) // num_players):
@@ -105,8 +150,25 @@ def play_game(num_players=4):
             trump_played = any(card.suit == trump_suit for _, card in played_cards)
         print(f"Player {winner + 1} wins trick {i + 1}\n")
 
-    for i, tricks in enumerate(tricks_won):
-        print(f"Player {i + 1} won {tricks} tricks")
+    scores = tricks_won.copy()
+    if tricks_won[leader] < highest_bid:
+        scores[leader] = -highest_bid
+        print(
+            f"Player {leader + 1} did not win {highest_bid} tricks, their score is set to {-highest_bid}"
+        )
+
+    print("Results:")
+    print("--------")
+    total_tricks_won = 0
+    for i, (score, tricks) in enumerate(zip(scores, tricks_won)):
+        print(f"Player {i + 1}:")
+        print(f"  Score: {score}")
+        print(f"  Tricks won: {tricks}")
+        total_tricks_won += tricks
+
+    print(f"\nTotal tricks won: {total_tricks_won}")
+
+    save_results_to_file(scores)
 
 
 if __name__ == "__main__":
