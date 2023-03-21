@@ -30,8 +30,18 @@ def main():
     for i, score in enumerate(total_scores):
         print(f"Player {i + 1}'s total score: {score}")
 
-    winner = total_scores.index(max(total_scores)) + 1
-    print(f"\nThe winner is Player {winner} with a total score of {max(total_scores)}")
+    max_score = max(total_scores)
+    winners = [i for i, score in enumerate(total_scores) if score == max_score]
+
+    if len(winners) == 1:
+        print(
+            f"\nThe winner is Player {winners[0] + 1} with a total score of {max_score}"
+        )
+    else:
+        tied_players = ", ".join([f"Player {i + 1}" for i in winners])
+        print(
+            f"\nThere is a tie between {tied_players} with a total score of {max_score}"
+        )
 
 
 if __name__ == "__main__":
