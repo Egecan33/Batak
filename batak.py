@@ -134,27 +134,29 @@ def play_game(num_players=4):
     scores = [0] * num_players
     trump_played = False
 
-    leader, highest_bid, trump_suit = bidding_phase(hands)
+    highest_bidder, highest_bid, trump_suit = bidding_phase(hands)
     print(
-        f"\nPlayer {leader + 1} has the highest bid of {highest_bid} and leads the first trick"
+        f"\nPlayer {highest_bidder + 1} has the highest bid of {highest_bid} and leads the first trick"
     )
     print(f"Trump suit is {trump_suit}\n")
 
+    leader = highest_bidder
     for i in range(len(deck.cards) // num_players):
         print(f"Trick {i + 1}:")
         played_cards = play_trick(leader, hands, trump_suit, trump_played)
         winner = find_trick_winner(played_cards, trump_suit)
         tricks_won[winner] += 1
-        leader = winner
+        if winner != leader:
+            leader = winner
         if not trump_played:
             trump_played = any(card.suit == trump_suit for _, card in played_cards)
         print(f"Player {winner + 1} wins trick {i + 1}\n")
 
     scores = tricks_won.copy()
-    if tricks_won[leader] < highest_bid:
-        scores[leader] = -highest_bid
+    if tricks_won[highest_bidder] < highest_bid:
+        scores[highest_bidder] = -highest_bid
         print(
-            f"Player {leader + 1} did not win {highest_bid} tricks, their score is set to {-highest_bid}"
+            f"Player {highest_bidder + 1} did not win {highest_bid} tricks, their score is set to {-highest_bid}"
         )
 
     print("Results:")
