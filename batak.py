@@ -159,6 +159,12 @@ def play_game(num_players=4):
             f"Player {highest_bidder + 1} did not win {highest_bid} tricks, their score is set to {-highest_bid}"
         )
 
+    # Update scores for players who didn't win any tricks
+    for i, tricks in enumerate(tricks_won):
+        if tricks == 0:
+            scores[i] = -10
+            print(f"Player {i + 1} did not win any tricks, their score is set to -10")
+
     print("Results:")
     print("--------")
     total_tricks_won = 0
