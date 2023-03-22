@@ -29,6 +29,12 @@ class AIPersonality:
     def follow_card(self, hand, led_suit, trump_suit, trump_played):
         raise NotImplementedError()
 
+    def bid(self, hand, current_bids):
+        raise NotImplementedError()
+
+    def choose_trump_suit(self, hand):
+        raise NotImplementedError()
+
 
 class ConservativePlayer(AIPersonality):
     def lead_card(self, hand, trump_suit, trump_played):
@@ -36,75 +42,141 @@ class ConservativePlayer(AIPersonality):
             hand,
             key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)),
         )
+        if not trump_played:
+            sorted_hand = [card for card in sorted_hand if card.suit != trump_suit]
         return sorted_hand[0]
 
     def follow_card(self, hand, led_suit, trump_suit, trump_played):
-        follow_card = next((card for card in hand if card.suit == led_suit), None)
-        if follow_card:
-            return follow_card
-        return next((card for card in hand if card.suit != trump_suit), hand[0])
+        valid_cards = [card for card in hand if card.suit == led_suit]
+        if not valid_cards:
+            valid_cards = [card for card in hand if card.suit == trump_suit]
+
+        if not valid_cards:
+            valid_cards = hand
+
+        return min(valid_cards, key=lambda c: Deck.ranks.index(c.rank))
+
+    def bid(self, hand, current_bids):
+        num_high_cards = sum(1 for card in hand if card.rank in "JQKA")
+        bid_value = max(1, num_high_cards // 2)
+        return max(current_bids + [0]) + bid_value
+
+    def choose_trump_suit(self, hand):
+        suit_counts = {suit: 0 for suit in Deck.suits}
+        for card in hand:
+            suit_counts[card.suit] += 1
+        return max(suit_counts, key=suit_counts.get)
 
 
 class AggressivePlayer(AIPersonality):
     def lead_card(self, hand, trump_suit, trump_played):
-        sorted_hand = sorted(
-            hand,
-            key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)),
-            reverse=True,
-        )
-        return sorted_hand[0]
+        if not trump_played:
+            non_trump_cards = [card for card in hand if card.suit != trump_suit]
+            if non_trump_cards:
+                return max(non_trump_cards, key=lambda c: Deck.ranks.index(c.rank))
+        return max(hand, key=lambda c: Deck.ranks.index(c.rank))
 
     def follow_card(self, hand, led_suit, trump_suit, trump_played):
-        follow_card = next((card for card in hand if card.suit == led_suit), None)
-        if follow_card:
-            higher_cards = [
-                card
-                for card in hand
-                if card.suit == led_suit
-                and Deck.ranks.index(card.rank) > Deck.ranks.index(follow_card.rank)
-            ]
-            if higher_cards:
-                follow_card = max(higher_cards, key=lambda c: Deck.ranks.index(c.rank))
-            return follow_card
-        return hand[0]
+        valid_cards = [card for card in hand if card.suit == led_suit]
+        if not valid_cards:
+            valid_cards = [card for card in hand if card.suit == trump_suit]
+
+        if not valid_cards:
+            valid_cards = hand
+
+        high_cards = [card for card in valid_cards if card.rank in "JQKA"]
+        if high_cards:
+            if trump_played:
+                return min(high_cards, key=lambda c: Deck.ranks.index(c.rank))
+            else:
+                return max(high_cards, key=lambda c: Deck.ranks.index(c.rank))
+        else:
+            if trump_played:
+                return min(valid_cards, key=lambda c: Deck.ranks.index(c.rank))
+            else:
+                return max(valid_cards, key=lambda c: Deck.ranks.index(c.rank))
+
+    def bid(self, hand, current_bids):
+        num_high_cards = sum(1 for card in hand if card.rank in "JQKA")
+        bid_value = num_high_cards
+        return max(current_bids + [0]) + bid_value
+
+    def choose_trump_suit(self, hand):
+        suit_counts = {suit: 0 for suit in Deck.suits}
+        for card in hand:
+            suit_counts[card.suit] += 1
+        return max(suit_counts, key=suit_counts.get)
 
 
 class BalancedPlayer(AIPersonality):
     def lead_card(self, hand, trump_suit, trump_played):
-        non_trump_cards = [card for card in hand if card.suit != trump_suit]
-        if non_trump_cards:
-            sorted_hand = sorted(
-                non_trump_cards,
-                key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)),
-            )
-            return sorted_hand[0]
-        return hand[0]
+        if not trump_played:
+            non_trump_cards = [card for card in hand if card.suit != trump_suit]
+            if non_trump_cards:
+                return random.choice(non_trump_cards)
+        return random.choice(hand)
 
     def follow_card(self, hand, led_suit, trump_suit, trump_played):
-        follow_card = next((card for card in hand if card.suit == led_suit), None)
-        if follow_card:
-            return follow_card
-        return next((card for card in hand if card.suit == trump_suit), hand[0])
+        valid_cards = [card for card in hand if card.suit == led_suit]
+        if not valid_cards:
+            valid_cards = [card for card in hand if card.suit == trump_suit]
+
+        if not valid_cards:
+            valid_cards = hand
+
+        if trump_played:
+            return min(valid_cards, key=lambda c: Deck.ranks.index(c.rank))
+        else:
+            return max(valid_cards, key=lambda c: Deck.ranks.index(c.rank))
+
+    def bid(self, hand, current_bids):
+        num_high_cards = sum(1 for card in hand if card.rank in "JQKA")
+        bid_value = max(1, num_high_cards // 3)
+        return max(current_bids + [0]) + bid_value
+
+    def choose_trump_suit(self, hand):
+        suit_counts = {suit: 0 for suit in Deck.suits}
+        for card in hand:
+            suit_counts[card.suit] += 1
+        return max(suit_counts, key=suit_counts.get)
 
 
 class OpportunisticPlayer(AIPersonality):
     def lead_card(self, hand, trump_suit, trump_played):
+        high_cards = [card for card in hand if card.rank in "JQKA"]
         if not trump_played:
-            non_trump_cards = [card for card in hand if card.suit != trump_suit]
-            if non_trump_cards:
-                sorted_hand = sorted(
-                    non_trump_cards,
-                    key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)),
-                    reverse=True,
-                )
-                return sorted_hand[0]
-        return hand[0]
+            high_cards = [card for card in high_cards if card.suit != trump_suit]
+        if high_cards:
+            return min(high_cards, key=lambda c: Deck.ranks.index(c.rank))
+        return min(hand, key=lambda c: Deck.ranks.index(c.rank))
 
     def follow_card(self, hand, led_suit, trump_suit, trump_played):
-        follow_card = next((card for card in hand if card.suit == led_suit), None)
-        if follow_card:
-            return follow_card
-        return next((card for card in hand if card.suit != trump_suit), hand[0])
+        valid_cards = [card for card in hand if card.suit == led_suit]
+        if not valid_cards:
+            valid_cards = [card for card in hand if card.suit == trump_suit]
+
+        if not valid_cards:
+            valid_cards = hand
+
+        if trump_played:
+            return min(valid_cards, key=lambda c: Deck.ranks.index(c.rank))
+        else:
+            high_cards = [card for card in valid_cards if card.rank in "JQKA"]
+            if high_cards:
+                return max(high_cards, key=lambda c: Deck.ranks.index(c.rank))
+            else:
+                return min(valid_cards, key=lambda c: Deck.ranks.index(c.rank))
+
+    def bid(self, hand, current_bids):
+        num_high_cards = sum(1 for card in hand if card.rank in "JQKA")
+        bid_value = max(1, num_high_cards // 4)
+        return max(current_bids + [0]) + bid_value
+
+    def choose_trump_suit(self, hand):
+        suit_counts = {suit: 0 for suit in Deck.suits}
+        for card in hand:
+            suit_counts[card.suit] += 1
+        return max(suit_counts, key=suit_counts.get)
 
 
 def create_personalities(num_players):
@@ -164,38 +236,45 @@ def save_results_to_file(results):
         f.write(", ".join(str(points) for points in results) + "\n")
 
 
-def bidding_phase(hands):
+def bidding_phase(hands, personalities):
     bids = [0] * len(hands)
     tied_players = list(range(len(hands)))
+    tie_counter = 0
 
     while len(tied_players) > 1:
         new_bids = []
+
         for i in tied_players:
             print(
                 f"Player {i + 1}, your hand: {sorted(hands[i], key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)))}"
             )
-            bid = int(input(f"Enter your bid (must be at least {bids[i]}): "))
-            while bid < bids[i]:
-                bid = int(
-                    input(f"Invalid bid. Enter your bid (must be at least {bids[i]}): ")
-                )
+            bid = personalities[i].bid(
+                hands[i], [bids[j] for j in tied_players if j != i]
+            )
             new_bids.append((i, bid))
+            print(f"Player {i + 1} bids {bid}")
 
         highest_bid = max(new_bids, key=lambda x: x[1])
-        tied_players = [i for i, bid in new_bids if bid == highest_bid[1]]
+        new_tied_players = [i for i, bid in new_bids if bid == highest_bid[1]]
+
+        if len(new_tied_players) > 1:
+            tie_counter += 1
+        else:
+            tie_counter = 0
+
+        if tie_counter >= 3:
+            forced_bidder = random.choice(new_tied_players)
+            bids[forced_bidder] += 1
+            tied_players = [forced_bidder]
+            break
+        else:
+            tied_players = new_tied_players
+
         for i, bid in new_bids:
             bids[i] = bid
 
     highest_bidder = tied_players[0]
-
-    print(
-        f"Player {highest_bidder + 1}, you have the highest bid. Choose the trump suit:"
-    )
-    for i, suit in enumerate(Deck.suits):
-        print(f"{i + 1}: {suit}")
-    trump_suit = Deck.suits[
-        int(input("Enter the number corresponding to your chosen trump suit: ")) - 1
-    ]
+    trump_suit = personalities[highest_bidder].choose_trump_suit(hands[highest_bidder])
 
     return highest_bidder, bids[highest_bidder], trump_suit
 
@@ -208,7 +287,7 @@ def play_game(num_players=4):
     trump_played = False
     personalities = create_personalities(num_players)
 
-    highest_bidder, highest_bid, trump_suit = bidding_phase(hands)
+    highest_bidder, highest_bid, trump_suit = bidding_phase(hands, personalities)
     print(
         f"\nPlayer {highest_bidder + 1} has the highest bid of {highest_bid} and leads the first trick"
     )

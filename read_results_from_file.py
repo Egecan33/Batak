@@ -14,17 +14,10 @@ def read_results_from_file(file_name):
 
 def calculate_total_scores(results):
     total_scores = [0] * len(results[0])
-    trick_counts = [0] * len(results[0])
 
     for result in results:
         for i, score in enumerate(result):
             total_scores[i] += score
-            if score > 0:
-                trick_counts[i] += 1
-
-    for i, trick_count in enumerate(trick_counts):
-        if trick_count == 0:
-            total_scores[i] = -10
 
     return total_scores
 
