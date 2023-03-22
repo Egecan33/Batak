@@ -22,16 +22,110 @@ class Deck:
         return [self.cards[i::n] for i in range(n)]
 
 
-def play_trick(leader, hands, trump_suit, trump_played):
+class AIPersonality:
+    def lead_card(self, hand, trump_suit, trump_played):
+        raise NotImplementedError()
+
+    def follow_card(self, hand, led_suit, trump_suit, trump_played):
+        raise NotImplementedError()
+
+
+class ConservativePlayer(AIPersonality):
+    def lead_card(self, hand, trump_suit, trump_played):
+        sorted_hand = sorted(
+            hand,
+            key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)),
+        )
+        return sorted_hand[0]
+
+    def follow_card(self, hand, led_suit, trump_suit, trump_played):
+        follow_card = next((card for card in hand if card.suit == led_suit), None)
+        if follow_card:
+            return follow_card
+        return next((card for card in hand if card.suit != trump_suit), hand[0])
+
+
+class AggressivePlayer(AIPersonality):
+    def lead_card(self, hand, trump_suit, trump_played):
+        sorted_hand = sorted(
+            hand,
+            key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)),
+            reverse=True,
+        )
+        return sorted_hand[0]
+
+    def follow_card(self, hand, led_suit, trump_suit, trump_played):
+        follow_card = next((card for card in hand if card.suit == led_suit), None)
+        if follow_card:
+            higher_cards = [
+                card
+                for card in hand
+                if card.suit == led_suit
+                and Deck.ranks.index(card.rank) > Deck.ranks.index(follow_card.rank)
+            ]
+            if higher_cards:
+                follow_card = max(higher_cards, key=lambda c: Deck.ranks.index(c.rank))
+            return follow_card
+        return hand[0]
+
+
+class BalancedPlayer(AIPersonality):
+    def lead_card(self, hand, trump_suit, trump_played):
+        non_trump_cards = [card for card in hand if card.suit != trump_suit]
+        if non_trump_cards:
+            sorted_hand = sorted(
+                non_trump_cards,
+                key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)),
+            )
+            return sorted_hand[0]
+        return hand[0]
+
+    def follow_card(self, hand, led_suit, trump_suit, trump_played):
+        follow_card = next((card for card in hand if card.suit == led_suit), None)
+        if follow_card:
+            return follow_card
+        return next((card for card in hand if card.suit == trump_suit), hand[0])
+
+
+class OpportunisticPlayer(AIPersonality):
+    def lead_card(self, hand, trump_suit, trump_played):
+        if not trump_played:
+            non_trump_cards = [card for card in hand if card.suit != trump_suit]
+            if non_trump_cards:
+                sorted_hand = sorted(
+                    non_trump_cards,
+                    key=lambda c: (Deck.suits.index(c.suit), Deck.ranks.index(c.rank)),
+                    reverse=True,
+                )
+                return sorted_hand[0]
+        return hand[0]
+
+    def follow_card(self, hand, led_suit, trump_suit, trump_played):
+        follow_card = next((card for card in hand if card.suit == led_suit), None)
+        if follow_card:
+            return follow_card
+        return next((card for card in hand if card.suit != trump_suit), hand[0])
+
+
+def create_personalities(num_players):
+    personalities = [
+        ConservativePlayer(),
+        AggressivePlayer(),
+        BalancedPlayer(),
+        OpportunisticPlayer(),
+    ]
+    return personalities[:num_players]
+
+
+def play_trick(leader, hands, trump_suit, trump_played, personalities):
     played_cards = []
     led_suit = None
     for i, hand in enumerate(hands):
         player = (leader + i) % len(hands)
+        personality = personalities[player]
+
         if led_suit is None:
-            led_card = next(
-                (card for card in hand if (card.suit != trump_suit) or trump_played),
-                hand[0],
-            )
+            led_card = personality.lead_card(hand, trump_suit, trump_played)
             hand.remove(led_card)
             played_cards.append((player, led_card))
             print(f"Player {player + 1} leads {led_card}")
@@ -39,33 +133,12 @@ def play_trick(leader, hands, trump_suit, trump_played):
             if led_card.suit == trump_suit:
                 trump_played = True
         else:
-            follow_card = next((card for card in hand if card.suit == led_suit), None)
-            if follow_card:
-                higher_cards = [
-                    card
-                    for card in hand
-                    if card.suit == led_suit
-                    and Deck.ranks.index(card.rank) > Deck.ranks.index(follow_card.rank)
-                ]
-                if higher_cards:
-                    follow_card = max(
-                        higher_cards, key=lambda c: Deck.ranks.index(c.rank)
-                    )
-                hand.remove(follow_card)
-                played_cards.append((player, follow_card))
-                print(f"Player {player + 1} plays {follow_card}")
-            else:
-                trump_card = next(
-                    (card for card in hand if card.suit == trump_suit), None
-                )
-                if trump_card and trump_played:
-                    hand.remove(trump_card)
-                    played_cards.append((player, trump_card))
-                    print(f"Player {player + 1} plays {trump_card}")
-                else:
-                    non_trump_card = hand.pop()
-                    played_cards.append((player, non_trump_card))
-                    print(f"Player {player + 1} plays {non_trump_card}")
+            follow_card = personality.follow_card(
+                hand, led_suit, trump_suit, trump_played
+            )
+            hand.remove(follow_card)
+            played_cards.append((player, follow_card))
+            print(f"Player {player + 1} plays {follow_card}")
 
     return played_cards
 
@@ -133,6 +206,7 @@ def play_game(num_players=4):
     tricks_won = [0] * num_players
     scores = [0] * num_players
     trump_played = False
+    personalities = create_personalities(num_players)
 
     highest_bidder, highest_bid, trump_suit = bidding_phase(hands)
     print(
@@ -143,7 +217,9 @@ def play_game(num_players=4):
     leader = highest_bidder
     for i in range(len(deck.cards) // num_players):
         print(f"Trick {i + 1}:")
-        played_cards = play_trick(leader, hands, trump_suit, trump_played)
+        played_cards = play_trick(
+            leader, hands, trump_suit, trump_played, personalities
+        )
         winner = find_trick_winner(played_cards, trump_suit)
         tricks_won[winner] += 1
         if winner != leader:
