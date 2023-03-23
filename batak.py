@@ -110,11 +110,19 @@ class AggressivePlayer(AIPersonality):
 
 class BalancedPlayer(AIPersonality):
     def lead_card(self, hand, trump_suit, trump_played):
+        high_cards = [card for card in hand if card.rank in "JQKA"]
+        low_cards = [card for card in hand if card.rank not in "JQKA"]
+
         if not trump_played:
-            non_trump_cards = [card for card in hand if card.suit != trump_suit]
-            if non_trump_cards:
-                return random.choice(non_trump_cards)
-        return random.choice(hand)
+            high_cards = [card for card in high_cards if card.suit != trump_suit]
+            low_cards = [card for card in low_cards if card.suit != trump_suit]
+
+        if high_cards:
+            return max(high_cards, key=lambda c: Deck.ranks.index(c.rank))
+        elif low_cards:
+            return min(low_cards, key=lambda c: Deck.ranks.index(c.rank))
+        else:
+            return max(hand, key=lambda c: Deck.ranks.index(c.rank))
 
     def follow_card(self, hand, led_suit, trump_suit, trump_played):
         valid_cards = [card for card in hand if card.suit == led_suit]
@@ -317,7 +325,7 @@ def play_game(num_players=4):
     # Update scores for players who didn't win any tricks
     for i, tricks in enumerate(tricks_won):
         if tricks == 0:
-            scores[i] = -10
+            scores[i] = -4
             print(f"Player {i + 1} did not win any tricks, their score is set to -10")
 
     print("Results:")
