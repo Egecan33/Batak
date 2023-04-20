@@ -326,7 +326,7 @@ def play_game(num_players=4):
     for i, tricks in enumerate(tricks_won):
         if tricks == 0:
             scores[i] = -4
-            print(f"Player {i + 1} did not win any tricks, their score is set to -10")
+            print(f"Player {i + 1} did not win any tricks, their score is set to -4")
 
     print("Results:")
     print("--------")
